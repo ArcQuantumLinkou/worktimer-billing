@@ -1,0 +1,3 @@
+# 備份檔含有個人資料，不要 commit
+*.json
+.DS_Store

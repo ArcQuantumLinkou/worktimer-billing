@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>工時計時與請款回報</title>
+<style>
+:root{
+  --ink:#16202E;
+  --ink-soft:#4A5768;
+  --paper:#EDEFF2;
+  --card:#FFFFFF;
+  --line:#D4D9E1;
+  --line-soft:#E6E9EE;
+  --run:#1D7A5F;
+  --pause:#9A5B12;
+  --danger:#9B2C2C;
+  --accent:#2B4A7E;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  font-size:16px;
+  line-height:1.6;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 96px}
+h1{font-size:19px;font-weight:700;margin:0 0 4px;letter-spacing:.02em}
+.sub{color:var(--ink-soft);font-size:13px;margin:0 0 18px}
+
+.panel{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:18px 16px;
+  margin-bottom:16px;
+}
+.panel.timer{
+  border-color:var(--line);
+  padding-top:22px;
+}
+.panel.timer.on{border-color:var(--run);box-shadow:inset 0 0 0 1px var(--run)}
+.panel.timer.hold{border-color:var(--pause);box-shadow:inset 0 0 0 1px var(--pause)}
+
+.clock{
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum";
+  font-size:clamp(44px,15vw,68px);
+  line-height:1;
+  font-weight:600;
+  letter-spacing:-.02em;
+  margin:0;
+}
+.state{font-size:13px;color:var(--ink-soft);margin:8px 0 0}
+.state b{font-weight:600}
+.state.on b{color:var(--run)}
+.state.hold b{color:var(--pause)}
+
+.btnrow{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+button{
+  font-family:inherit;font-size:15px;
+  border-radius:8px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);
+  padding:11px 16px;cursor:pointer;
+}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:active{transform:translateY(1px)}
+.big{flex:1 1 auto;min-width:150px;font-size:16px;font-weight:600;padding:14px 16px}
+.go{background:var(--run);border-color:var(--run);color:#fff}
+.hold-btn{background:var(--pause);border-color:var(--pause);color:#fff}
+.solid{background:var(--ink);border-color:var(--ink);color:#fff}
+.ghost{background:transparent}
+.tiny{font-size:13px;padding:7px 11px}
+.del{color:var(--danger);border-color:#E3C5C5}
+
+.seglist{margin:14px 0 0;padding:12px 0 0;border-top:1px dashed var(--line-soft);font-size:13px;color:var(--ink-soft)}
+.seglist div{display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-variant-numeric:tabular-nums}
+.seglist .x{cursor:pointer;color:var(--danger);border:0;background:none;padding:0 4px;font-size:13px}
+
+h2{font-size:15px;font-weight:700;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+h2 span{font-size:12px;font-weight:400;color:var(--ink-soft)}
+
+.additem{display:flex;gap:8px}
+.additem input{flex:1;min-width:0}
+input[type=text],input[type=number],textarea{
+  font-family:inherit;font-size:15px;color:var(--ink);
+  border:1px solid var(--line);border-radius:8px;
+  padding:11px 12px;background:#FCFCFD;width:100%;
+}
+input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+textarea{line-height:1.7;resize:vertical}
+
+ul.items{list-style:none;margin:12px 0 0;padding:0}
+ul.items li{
+  display:flex;align-items:flex-start;gap:8px;
+  padding:9px 0;border-bottom:1px solid var(--line-soft);
+}
+ul.items li:last-child{border-bottom:0}
+ul.items .txt{flex:1;min-width:0;word-break:break-word}
+ul.items .ops{display:flex;gap:2px;flex-shrink:0}
+ul.items .ops button{border:0;background:none;padding:4px 6px;font-size:13px;color:var(--ink-soft)}
+ul.items .ops button.rm{color:var(--danger)}
+
+.empty{color:var(--ink-soft);font-size:14px;padding:6px 0}
+
+.rec{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:14px 15px;margin-bottom:12px}
+.rec .head{font-variant-numeric:tabular-nums;font-weight:600}
+.rec .meta{font-variant-numeric:tabular-nums;color:var(--ink-soft);font-size:14px;margin-bottom:8px}
+.rec p{margin:0 0 6px}
+.rec p:last-of-type{margin-bottom:0}
+.rec .ops{display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line-soft)}
+
+.total{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-variant-numeric:tabular-nums;
+  padding:14px 15px;background:var(--ink);color:#fff;border-radius:10px;margin-bottom:14px;
+}
+.total b{font-size:22px;font-weight:600}
+
+.mask{position:fixed;inset:0;background:rgba(16,22,32,.55);display:flex;align-items:flex-end;justify-content:center;padding:0;z-index:40}
+.modal{background:var(--card);width:100%;max-width:720px;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;padding:20px 16px 24px}
+.modal h3{margin:0 0 14px;font-size:17px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:6px}
+.hint{font-size:12px;color:var(--ink-soft);margin:6px 0 0}
+.modal .btnrow{margin-top:6px}
+pre.out{
+  white-space:pre-wrap;word-break:break-word;
+  font-family:inherit;font-size:15px;line-height:1.7;
+  background:#FBFBFC;border:1px solid var(--line);border-radius:8px;padding:14px;margin:0;
+}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{font-size:13px;padding:7px 13px}
+.tabs button.act{background:var(--ink);border-color:var(--ink);color:#fff}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table.rep{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;background:#fff}
+table.rep th,table.rep td{border-bottom:1px solid var(--line-soft);border-right:1px solid var(--line-soft);padding:9px 10px;vertical-align:top;text-align:left}
+table.rep th:last-child,table.rep td:last-child{border-right:0}
+table.rep thead th{background:#F3F5F8;font-weight:600;white-space:nowrap;font-size:13px;color:var(--ink-soft)}
+table.rep td.when{white-space:nowrap}
+table.rep td.num,table.rep th.num{text-align:right;white-space:nowrap}
+table.rep tfoot td{background:#F3F5F8;font-weight:600;border-bottom:0}
+table.rep .job{line-height:1.6}
+
+/* 勞務報酬單 */
+.labwrap{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto}
+.lab{color:#000;font-size:13px;line-height:1.5;min-width:520px;font-variant-numeric:tabular-nums}
+.lab .ttl{text-align:center;font-size:18px;font-weight:700;letter-spacing:.06em;margin:0 0 8px}
+.lab table{width:100%;border-collapse:collapse}
+.lab td,.lab th{border:1px solid #333;padding:6px 8px;vertical-align:middle}
+.lab .shade{background:#E8E8E8;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.lab .c{text-align:center}
+.lab .line{display:flex;gap:6px;align-items:baseline;padding:6px 0}
+.lab .line .k{white-space:nowrap}
+.lab .line .v{flex:1;border-bottom:1px solid #333;padding:0 6px;min-height:1.5em}
+.lab .two{display:flex;gap:18px}
+.lab .two .line{flex:1}
+.lab .amt{letter-spacing:.12em}
+.lab .note{text-align:left;font-size:12px}
+.lab .sigcell{height:74px;text-align:center}
+.lab .sigcell img{max-height:56px;max-width:100%}
+.lab .outer>tbody>tr>td{padding:4px 10px}
+.labform .row2{display:flex;gap:10px}
+.labform .row2 .field{flex:1;min-width:0}
+.sigprev{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.sigprev img{max-height:52px;border:1px dashed var(--line);border-radius:6px;padding:4px;background:#fff}
+
+/* 收入估算 */
+.earnrate{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.earnrate label{font-size:14px;color:var(--ink-soft);white-space:nowrap}
+.earnrate input{max-width:140px;font-variant-numeric:tabular-nums;font-size:17px;font-weight:600}
+.earnrate span{font-size:14px;color:var(--ink-soft);white-space:nowrap}
+.earngrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.earngrid>div{border:1px solid var(--line-soft);border-radius:8px;padding:12px;background:#FBFBFC;min-width:0}
+.earngrid>div.main{background:var(--ink);border-color:var(--ink);color:#fff}
+.earngrid .k{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px}
+.earngrid .main .k,.earngrid .main .s{color:#C9D1DD}
+.earngrid b{display:block;font-size:clamp(22px,7vw,30px);font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums}
+.earngrid .s{display:block;font-size:12px;color:var(--ink-soft);margin-top:4px;font-variant-numeric:tabular-nums}
+.earnnet{margin:12px 0 0;padding-top:10px;border-top:1px dashed var(--line-soft);font-size:13px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.earnnet b{color:var(--ink);font-weight:600}
+
+#printArea{display:none}
+@media print{
+  @page{margin:12mm 10mm}
+  body{background:#fff;color:#000}
+  .wrap,.mask,.toast{display:none !important}
+  #printArea{display:block !important}
+  #printArea h2{font-size:16px;margin:0 0 4px}
+  #printArea .sum{font-size:13px;color:#333;margin:0 0 14px}
+  table.rep{
+    font-size:12px;width:100%;
+    border-collapse:collapse;
+    border:1px solid #555 !important;
+    background:#fff !important;
+  }
+  table.rep th,
+  table.rep td,
+  table.rep th:last-child,
+  table.rep td:last-child,
+  table.rep thead th,
+  table.rep tfoot td{
+    border:1px solid #555 !important;
+    padding:5px 7px;
+    color:#000 !important;
+  }
+  table.rep thead th,
+  table.rep tfoot td{
+    background:#ECEEF1 !important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+  table.rep thead{display:table-header-group}
+  table.rep tfoot{display:table-row-group}
+  table.rep tr{break-inside:avoid;page-break-inside:avoid}
+  #printArea .lab{min-width:0;font-size:13px}
+  #printArea .lab td,#printArea .lab th{border:1px solid #000}
+}
+
+.toast{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+  background:var(--ink);color:#fff;font-size:14px;padding:10px 18px;border-radius:999px;z-index:60;
+}
+.arch{border-top:1px solid var(--line-soft);padding:10px 0;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.arch:first-child{border-top:0}
+.arch .t{font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:no-preference){
+  .toast{animation:pop .18s ease-out}
+  @keyframes pop{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>工時計時與請款回報</h1>
+  <p class="sub">計時、記錄工作項目、產出給客戶的回報，結案時一次匯總請款。</p>
+
+  <section class="panel timer" id="timerPanel">
+    <p class="clock" id="clock">00:00:00</p>
+    <p class="state" id="state">尚未開始這一階段</p>
+    <div class="btnrow">
+      <button class="big go" id="mainBtn">開始計時</button>
+      <button class="big ghost" id="stopBtn">結束並回報</button>
+    </div>
+    <div class="seglist" id="segList"></div>
+  </section>
+
+  <section class="panel" id="earnPanel">
+    <h2>收入估算 <span id="earnTag"></span></h2>
+    <div class="earnrate">
+      <label for="rateInput">時薪</label>
+      <input type="number" id="rateInput" min="0" step="10" inputmode="decimal">
+      <span>元／小時</span>
+    </div>
+    <div class="earngrid">
+      <div><span class="k">這一階段</span><b id="eStage">0</b><span class="s" id="eStageSub"></span></div>
+      <div class="main"><span class="k">本期累計（含這一階段）</span><b id="eTotal">0</b><span class="s" id="eTotalSub"></span></div>
+    </div>
+    <p class="earnnet" id="eNet"></p>
+  </section>
+
+  <section class="panel">
+    <h2>這一階段做了什麼 <span id="itemCount"></span></h2>
+    <div class="additem">
+      <input type="text" id="itemInput" placeholder="例如：調整首頁圖片位置" autocomplete="off">
+      <button id="addItem">新增</button>
+    </div>
+    <ul class="items" id="itemList"></ul>
+    <p class="empty" id="itemEmpty">還沒有項目，邊做邊記，結束時會一起送進回報。</p>
+  </section>
+
+  <section>
+    <h2>本期回報紀錄 <span id="recCount"></span></h2>
+    <div class="total">
+      <span>本期累計</span>
+      <span><b id="cumTotal">0</b> 分鐘 <span id="cumHours"></span></span>
+    </div>
+    <div id="recList"></div>
+    <div class="btnrow">
+      <button class="tiny" id="manualBtn">手動補一筆</button>
+      <button class="tiny solid" id="billBtn">產生請款報告</button>
+    </div>
+  </section>
+
+  <section class="panel" id="archPanel" style="display:none">
+    <h2>已結案紀錄 <span id="archCount"></span></h2>
+    <div id="archList"></div>
+  </section>
+
+  <section class="panel">
+    <h2>勞務報酬單 <span id="labSum"></span></h2>
+    <p class="hint" style="margin:0 0 12px">請款報告裡的「勞務報酬單」分頁會用本期累計時數乘上每小時金額，自動算出應付金額、代扣與實付，並帶入簽名。</p>
+    <p class="hint" id="labWarn" style="display:none;margin:0 0 12px;color:var(--pause)"></p>
+    <div class="btnrow"><button class="tiny" id="labSetBtn">設定所得人資料、時薪與簽名</button></div>
+  </section>
+
+  <section class="panel">
+    <h2>備份與還原 <span id="backupWhen"></span></h2>
+    <p class="hint" style="margin:0 0 12px">資料只存在這台裝置的瀏覽器裡，清掉瀏覽器資料就會不見。建議每次請款前後各匯出一次 JSON 備份檔留底，換裝置或資料不見時可以直接還原。</p>
+    <div class="btnrow">
+      <button class="tiny solid" id="expBtn">匯出 JSON 備份</button>
+      <button class="tiny" id="impBtn">從備份還原</button>
+    </div>
+    <input type="file" id="impFile" accept=".json,application/json" style="display:none">
+  </section>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+(function(){
+"use strict";
+var KEY="worktimer_v1";
+var S={records:[],segments:[],items:[],running:false,startedAt:null,archives:[]};
+
+/* ---------- 儲存：優先用內建儲存，退回瀏覽器本機儲存 ---------- */
+var hasWinStore = (typeof window!=="undefined" && window.storage && typeof window.storage.get==="function");
+async function load(){
+  if(hasWinStore){
+    try{ var r=await window.storage.get(KEY); if(r&&r.value) return JSON.parse(r.value); }catch(e){}
+  }
+  try{ var v=localStorage.getItem(KEY); if(v) return JSON.parse(v); }catch(e){}
+  return null;
+}
+var saveTimer=null;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async function(){
+    var s=JSON.stringify(S);
+    if(hasWinStore){ try{ await window.storage.set(KEY,s); return; }catch(e){} }
+    try{ localStorage.setItem(KEY,s); }catch(e){}
+  },120);
+}
+
+/* ---------- 工具 ---------- */
+function $(id){return document.getElementById(id);}
+function pad(n){return String(n).padStart(2,"0");}
+function fmtDateTime(d){return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate()+" "+d.getHours()+":"+pad(d.getMinutes());}
+function ymd(d){return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate();}
+function hm(d){return d.getHours()+":"+pad(d.getMinutes());}
+/* 由文字取出結束時間，允許 2026/9/10 4:25 或已經是區間的 2026/9/10 3:03-4:25 */
+function parseEnd(s){
+  s=String(s||"");
+  var ds=s.match(/\d{4}[\/\-.]\d{1,2}[\/\-.]\d{1,2}/g);
+  var ts=s.match(/\d{1,2}:\d{2}/g);
+  if(!ds||!ts) return null;
+  var d=ds[ds.length-1].split(/[\/\-.]/);
+  var t=ts[ts.length-1].split(":");
+  var dt=new Date(+d[0],+d[1]-1,+d[2],+t[0],+t[1],0,0);
+  return isNaN(dt.getTime())?null:dt;
+}
+/* 顯示成「開始-結束」，開始時間由結束時間往回推該筆分鐘數 */
+function fmtRange(datetime,minutes){
+  var end=parseEnd(datetime);
+  if(!end||!minutes) return String(datetime||"");
+  var start=new Date(end.getTime()-minutes*60000);
+  var sameDay=start.getFullYear()===end.getFullYear()&&start.getMonth()===end.getMonth()&&start.getDate()===end.getDate();
+  return sameDay
+    ? ymd(end)+" "+hm(start)+"-"+hm(end)
+    : ymd(start)+" "+hm(start)+"-"+ymd(end)+" "+hm(end);
+}
+function fmtClock(ms){
+  var t=Math.floor(ms/1000);
+  return pad(Math.floor(t/3600))+":"+pad(Math.floor(t%3600/60))+":"+pad(t%60);
+}
+function fmtHm(m){
+  if(m<60) return "";
+  return "（約 "+Math.floor(m/60)+" 小時 "+(m%60)+" 分）";
+}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function toast(msg){
+  var t=document.createElement("div");
+  t.className="toast";t.textContent=msg;document.body.appendChild(t);
+  setTimeout(function(){t.remove();},1600);
+}
+function copy(text,okMsg){
+  var done=function(){toast(okMsg||"已複製");};
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done,function(){fallback();});
+  }else fallback();
+  function fallback(){
+    var ta=document.createElement("textarea");
+    ta.value=text;ta.style.position="fixed";ta.style.opacity="0";
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand("copy");done();}catch(e){toast("複製失敗，請手動選取文字");}
+    ta.remove();
+  }
+}
+
+/* ---------- 計時 ---------- */
+function liveMs(){
+  var ms=0;
+  for(var i=0;i<S.segments.length;i++){
+    var g=S.segments[i];
+    ms+=(g.end||Date.now())-g.start;
+  }
+  return Math.max(0,ms);
+}
+function liveMinutes(){
+  var ms=liveMs();
+  if(ms<=0) return 0;
+  return Math.max(1,Math.round(ms/60000));
+}
+function startTimer(){
+  S.segments.push({start:Date.now(),end:null});
+  S.running=true;
+  save();render();
+}
+function pauseTimer(){
+  var g=S.segments[S.segments.length-1];
+  if(g&&!g.end) g.end=Date.now();
+  S.running=false;
+  save();render();
+}
+
+/* ---------- 回報紀錄 ---------- */
+function cumulativeAt(i){
+  var sum=0;
+  for(var k=0;k<=i;k++) sum+=S.records[k].minutes;
+  return sum;
+}
+function totalMinutes(){
+  return S.records.reduce(function(a,r){return a+r.minutes;},0);
+}
+function blockText(r,cum){
+  var out=fmtRange(r.datetime,r.minutes)+"\n"+r.minutes+"分鐘 累計 "+cum+"分鐘";
+  if(r.items.length) out+="\n\n"+r.items.join("\n\n");
+  return out;
+}
+function finishStage(){
+  if(S.running) pauseTimer();
+  var mins=liveMinutes();
+  if(mins===0&&S.items.length===0){
+    toast("這一階段還沒有時間也沒有項目");
+    return;
+  }
+  S.records.push({
+    id:uid(),
+    datetime:fmtDateTime(new Date()),
+    minutes:mins,
+    items:S.items.slice()
+  });
+  S.segments=[];S.items=[];S.running=false;
+  save();render();
+  var i=S.records.length-1;
+  copy(blockText(S.records[i],cumulativeAt(i)),"回報已產生並複製");
+}
+
+/* ---------- 畫面 ---------- */
+function render(){
+  var ms=liveMs();
+  $("clock").textContent=fmtClock(ms);
+  var panel=$("timerPanel"),st=$("state");
+  panel.className="panel timer"+(S.running?" on":(ms>0?" hold":""));
+  st.className="state"+(S.running?" on":(ms>0?" hold":""));
+  if(S.running) st.innerHTML="<b>計時中</b>　這一階段目前 "+liveMinutes()+" 分鐘";
+  else if(ms>0) st.innerHTML="<b>已暫停</b>　這一階段目前 "+liveMinutes()+" 分鐘，可以再開始";
+  else st.textContent="尚未開始這一階段";
+  $("mainBtn").textContent=S.running?"暫停":(ms>0?"繼續計時":"開始計時");
+  $("mainBtn").className="big "+(S.running?"hold-btn":"go");
+  $("stopBtn").disabled=(ms===0&&S.items.length===0);
+  $("stopBtn").style.opacity=$("stopBtn").disabled?".45":"1";
+
+  // 分段
+  var sl=$("segList");
+  if(!S.segments.length){sl.innerHTML="";sl.style.display="none";}
+  else{
+    sl.style.display="block";
+    sl.innerHTML=S.segments.map(function(g,i){
+      var end=g.end?fmtClock2(g.end):"進行中";
+      var len=Math.round(((g.end||Date.now())-g.start)/60000);
+      return "<div><span>第 "+(i+1)+" 段　"+fmtClock2(g.start)+" – "+end+"</span><span>"+len+" 分"+
+        (g.end?" <button class='x' data-seg='"+i+"'>刪除</button>":"")+"</span></div>";
+    }).join("");
+  }
+
+  // 項目
+  var il=$("itemList");
+  il.innerHTML=S.items.map(function(t,i){
+    return "<li><span class='txt'>"+esc(t)+"</span><span class='ops'>"+
+      "<button data-up='"+i+"' title='上移'>↑</button>"+
+      "<button data-down='"+i+"' title='下移'>↓</button>"+
+      "<button data-edit='"+i+"'>編輯</button>"+
+      "<button class='rm' data-rm='"+i+"'>刪除</button></span></li>";
+  }).join("");
+  $("itemEmpty").style.display=S.items.length?"none":"block";
+  $("itemCount").textContent=S.items.length?S.items.length+" 項":"";
+
+  // 紀錄
+  var rl=$("recList");
+  if(!S.records.length){
+    rl.innerHTML="<div class='panel'><p class='empty' style='padding:0'>本期還沒有回報。結束第一個階段之後，這裡就會出現可以直接貼給客戶的內容。</p></div>";
+  }else{
+    rl.innerHTML=S.records.map(function(r,i){
+      var cum=cumulativeAt(i);
+      var body=r.items.map(function(t){return "<p>"+esc(t)+"</p>";}).join("");
+      return "<div class='rec'><div class='head'>"+esc(fmtRange(r.datetime,r.minutes))+"</div>"+
+        "<div class='meta'>"+r.minutes+"分鐘 累計 "+cum+"分鐘</div>"+body+
+        "<div class='ops'><button class='tiny' data-copy='"+i+"'>複製這則</button>"+
+        "<button class='tiny' data-redit='"+i+"'>編輯</button>"+
+        "<button class='tiny del' data-rdel='"+i+"'>刪除</button></div></div>";
+    }).join("");
+  }
+  var tm=totalMinutes();
+  $("cumTotal").textContent=tm;
+  $("cumHours").textContent=fmtHm(tm);
+  $("recCount").textContent=S.records.length?S.records.length+" 則":"";
+
+  // 已結案
+  var ap=$("archPanel");
+  if(!S.archives.length){ap.style.display="none";}
+  else{
+    ap.style.display="block";
+    $("archCount").textContent=S.archives.length+" 筆";
+    $("archList").innerHTML=S.archives.map(function(a,i){
+      return "<div class='arch'><span class='t'>"+esc(a.label)+"　"+a.total+" 分鐘　"+a.count+" 則</span>"+
+        "<span><button class='tiny' data-aview='"+i+"'>看報告</button> <button class='tiny del' data-adel='"+i+"'>刪除</button></span></div>";
+    }).join("");
+  }
+
+  // 備份時間
+  var bw=$("backupWhen");
+  var ls=$("labSum");
+  if(ls){var c=laborCalc(minToHours(totalMinutes()));ls.textContent="本期 "+fmtH(c.hours)+" 小時 × "+lab().rate+" 元 = 實付 "+money(c.net)+" 元";}
+  var lw=$("labWarn");
+  if(lw){var miss=labMissing();lw.style.display=miss.length?"block":"none";lw.textContent=miss.length?"還沒填寫："+miss.join("、")+"。第一次使用請先按下面的按鈕設定，資料只會存在這台裝置的瀏覽器裡。":"";}
+  renderEarn();
+  if(bw) bw.textContent=S.lastBackup?("上次匯出　"+fmtDateTime(new Date(S.lastBackup))):"還沒有匯出過";
+}
+/* ---------- 收入估算 ---------- */
+function renderEarn(){
+  var rate=+lab().rate||0;
+  var ri=$("rateInput");
+  if(ri&&document.activeElement!==ri) ri.value=rate;
+  var stageMs=liveMs();
+  var stageMin=stageMs/60000;
+  var doneMin=totalMinutes();
+  var allMin=doneMin+stageMin;
+  $("eStage").textContent="$"+money(stageMin/60*rate);
+  $("eStageSub").textContent=Math.floor(stageMin)+" 分鐘"+(S.running?"・計時中":"");
+  $("eTotal").textContent="$"+money(allMin/60*rate);
+  $("eTotalSub").textContent=Math.floor(allMin)+" 分鐘，約 "+fmtH(allMin/60)+" 小時";
+  $("earnTag").textContent=S.running?"每分鐘約 $"+(Math.round(rate/60*10)/10)+"":"";
+  var c=laborCalc(minToHours(Math.round(allMin)));
+  var ded=c.nhi+c.part+c.tax;
+  $("eNet").innerHTML="依勞務報酬單算法（時數四捨五入到 0.1 小時）："+
+    "應付 <b>$"+money(c.amount)+"</b>"+
+    (ded?"，代扣 $"+money(ded)+"，實付 <b>$"+money(c.net)+"</b>":"，未達代扣門檻，實付 <b>$"+money(c.net)+"</b>");
+}
+function fmtClock2(ts){var d=new Date(ts);return d.getHours()+":"+pad(d.getMinutes());}
+
+/* ---------- 彈窗 ---------- */
+function openModal(html){
+  var m=document.createElement("div");
+  m.className="mask";
+  m.innerHTML="<div class='modal'>"+html+"</div>";
+  m.addEventListener("click",function(e){if(e.target===m) m.remove();});
+  document.body.appendChild(m);
+  return m;
+}
+function editRecord(i){
+  var r=S.records[i];
+  var m=openModal(
+    "<h3>編輯回報</h3>"+
+    "<div class='field'><label>結束時間</label><input type='text' id='e_dt' value='"+esc(r.datetime)+"'></div>"+
+    "<div class='field'><label>本次分鐘數</label><input type='number' id='e_mm' min='0' value='"+r.minutes+"'>"+
+    "<p class='hint'>開始時間會由結束時間往回推分鐘數，回報顯示為 <b id='e_pv'></b>。累計會依照上面所有紀錄自動重算。</p></div>"+
+    "<div class='field'><label>工作項目，一行一項</label><textarea id='e_it' rows='7'>"+esc(r.items.join("\n"))+"</textarea></div>"+
+    "<div class='btnrow'><button class='big solid' id='e_ok'>儲存</button><button class='big ghost' id='e_no'>取消</button></div>"
+  );
+  var pv=function(){
+    m.querySelector("#e_pv").textContent=
+      fmtRange(m.querySelector("#e_dt").value.trim(),Math.max(0,parseInt(m.querySelector("#e_mm").value,10)||0));
+  };
+  m.querySelector("#e_dt").addEventListener("input",pv);
+  m.querySelector("#e_mm").addEventListener("input",pv);
+  pv();
+  m.querySelector("#e_no").onclick=function(){m.remove();};
+  m.querySelector("#e_ok").onclick=function(){
+    r.datetime=m.querySelector("#e_dt").value.trim()||r.datetime;
+    r.minutes=Math.max(0,parseInt(m.querySelector("#e_mm").value,10)||0);
+    r.items=m.querySelector("#e_it").value.split("\n").map(function(s){return s.trim();}).filter(Boolean);
+    save();render();m.remove();toast("已更新");
+  };
+}
+function manualAdd(){
+  var now=fmtDateTime(new Date());
+  var m=openModal(
+    "<h3>手動補一筆</h3>"+
+    "<div class='field'><label>結束時間</label><input type='text' id='n_dt' value='"+now+"'></div>"+
+    "<div class='field'><label>分鐘數</label><input type='number' id='n_mm' min='0' value='30'>"+
+    "<p class='hint'>回報會顯示為 <b id='n_pv'></b>，開始時間由結束時間往回推。</p></div>"+
+    "<div class='field'><label>工作項目，一行一項</label><textarea id='n_it' rows='7' placeholder='調整首頁圖片位置&#10;修改內頁字體大小'></textarea></div>"+
+    "<div class='btnrow'><button class='big solid' id='n_ok'>新增</button><button class='big ghost' id='n_no'>取消</button></div>"
+  );
+  var pv=function(){
+    m.querySelector("#n_pv").textContent=
+      fmtRange(m.querySelector("#n_dt").value.trim(),Math.max(0,parseInt(m.querySelector("#n_mm").value,10)||0));
+  };
+  m.querySelector("#n_dt").addEventListener("input",pv);
+  m.querySelector("#n_mm").addEventListener("input",pv);
+  pv();
+  m.querySelector("#n_no").onclick=function(){m.remove();};
+  m.querySelector("#n_ok").onclick=function(){
+    S.records.push({
+      id:uid(),
+      datetime:m.querySelector("#n_dt").value.trim()||now,
+      minutes:Math.max(0,parseInt(m.querySelector("#n_mm").value,10)||0),
+      items:m.querySelector("#n_it").value.split("\n").map(function(s){return s.trim();}).filter(Boolean)
+    });
+    save();render();m.remove();toast("已新增");
+  };
+}
+function billText(records,label){
+  var total=records.reduce(function(a,r){return a+r.minutes;},0);
+  var head="工作時數彙整\n"+label+"\n共 "+records.length+" 次回報，總計 "+total+" 分鐘"+fmtHm(total)+"\n";
+  var sum=0;
+  var body=records.map(function(r){
+    sum+=r.minutes;
+    return blockText(r,sum);
+  }).join("\n\n----------\n\n");
+  return head+"\n"+body;
+}
+
+/* ---------- 請款報告表格 ---------- */
+function billRows(records){
+  var sum=0;
+  return records.map(function(r){
+    sum+=r.minutes;
+    return {range:fmtRange(r.datetime,r.minutes),minutes:r.minutes,cum:sum,items:r.items||[]};
+  });
+}
+function billTableHTML(records){
+  var rows=billRows(records);
+  var total=rows.length?rows[rows.length-1].cum:0;
+  var h="<table class='rep'><thead><tr><th class='num'>次</th><th>日期與時間</th><th class='num'>分鐘</th><th class='num'>累計</th><th>工作項目</th></tr></thead><tbody>";
+  rows.forEach(function(r,i){
+    var job=r.items.length?r.items.map(esc).join("<br>"):"—";
+    h+="<tr><td class='num'>"+(i+1)+"</td><td class='when'>"+esc(r.range)+"</td><td class='num'>"+r.minutes+
+       "</td><td class='num'>"+r.cum+"</td><td class='job'>"+job+"</td></tr>";
+  });
+  h+="</tbody><tfoot><tr><td class='num'></td><td>合計</td><td class='num'>"+total+"</td><td class='num'>"+total+
+     "</td><td>"+rows.length+" 次回報"+(fmtHm(total)||"")+"</td></tr></tfoot></table>";
+  return h;
+}
+function billTSV(records){
+  var rows=billRows(records);
+  var out=["次\t日期與時間\t分鐘\t累計\t工作項目"];
+  rows.forEach(function(r,i){
+    out.push((i+1)+"\t"+r.range+"\t"+r.minutes+"\t"+r.cum+"\t"+(r.items.join("；")||"—"));
+  });
+  var total=rows.length?rows[rows.length-1].cum:0;
+  out.push("\t合計\t"+total+"\t"+total+"\t"+rows.length+" 次回報");
+  return out.join("\n");
+}
+function inlineTableHTML(records){
+  var rows=billRows(records);
+  var total=rows.length?rows[rows.length-1].cum:0;
+  var cell="border:1px solid #555;padding:5px 8px;vertical-align:top;font-family:sans-serif;font-size:13px;";
+  var head=cell+"background:#ECEEF1;font-weight:bold;text-align:left;white-space:nowrap;";
+  var num=cell+"text-align:right;white-space:nowrap;";
+  var foot=cell+"background:#ECEEF1;font-weight:bold;";
+  var footNum=foot+"text-align:right;white-space:nowrap;";
+  var h="<table border='1' cellspacing='0' cellpadding='4' style='border-collapse:collapse;border:1px solid #555'>"+
+    "<thead><tr><th style=\""+head+"\">次</th><th style=\""+head+"\">日期與時間</th>"+
+    "<th style=\""+head+"\">分鐘</th><th style=\""+head+"\">累計</th><th style=\""+head+"\">工作項目</th></tr></thead><tbody>";
+  rows.forEach(function(r,i){
+    var job=r.items.length?r.items.map(esc).join("<br>"):"—";
+    h+="<tr><td style=\""+num+"\">"+(i+1)+"</td><td style=\""+cell+"white-space:nowrap;\">"+esc(r.range)+"</td>"+
+       "<td style=\""+num+"\">"+r.minutes+"</td><td style=\""+num+"\">"+r.cum+"</td>"+
+       "<td style=\""+cell+"\">"+job+"</td></tr>";
+  });
+  h+="</tbody><tr><td style=\""+foot+"\"></td><td style=\""+foot+"\">合計</td>"+
+     "<td style=\""+footNum+"\">"+total+"</td><td style=\""+footNum+"\">"+total+"</td>"+
+     "<td style=\""+foot+"\">"+rows.length+" 次回報"+(fmtHm(total)||"")+"</td></tr></table>";
+  return h;
+}
+function copyTable(box,records){
+  var tbl=box.querySelector("table");
+  if(!tbl){toast("找不到表格");return;}
+  var html="<meta charset='utf-8'>"+inlineTableHTML(records);
+  var tsv=billTSV(records);
+  if(navigator.clipboard&&window.ClipboardItem&&window.Blob){
+    try{
+      navigator.clipboard.write([new ClipboardItem({
+        "text/html":new Blob([html],{type:"text/html"}),
+        "text/plain":new Blob([tsv],{type:"text/plain"})
+      })]).then(function(){toast("表格已複製，可直接貼進 Excel 或 Word");},function(){selCopy(tbl);});
+      return;
+    }catch(e){}
+  }
+  selCopy(tbl);
+}
+function selCopy(el){
+  var r=document.createRange();r.selectNode(el);
+  var s=window.getSelection();s.removeAllRanges();s.addRange(r);
+  try{document.execCommand("copy");toast("表格已複製");}catch(e){toast("複製失敗，請手動選取表格");}
+  s.removeAllRanges();
+}
+function printReport(title,sub,records){
+  $("printArea").innerHTML="<h2>"+esc(title)+"</h2><p class='sum'>"+esc(sub)+"</p>"+billTableHTML(records);
+  setTimeout(function(){window.print();},60);
+}
+
+
+/* ---------- 勞務報酬單 ---------- */
+var LAB_DEFAULT={
+  company:"",
+  name:"",
+  job:"",
+  rate:500,
+  incomeCode:"",
+  pay:"",
+  idno:"",
+  addr1:"",
+  addr2:"",
+  phone:"",
+  nhiRate:2.11, nhiMin:20000,
+  taxRate:10, taxMin:20010,
+  partRate:5, partOn:false,
+  sig:""
+};
+/* 設定視窗的範例提示文字（只顯示在空白欄位，不會存進資料） */
+var LAB_HINT={
+  ls_company:"例如：○○有限公司",
+  ls_name:"所得人本名",
+  ls_idno:"例如：A1XXXXXXXX",
+  ls_job:"例如：美術設計編輯",
+  ls_rate:"例如：500",
+  ls_code:"例如：9A(執行業務) 15類美術工藝家",
+  ls_pay:"例如：銀行轉帳　○○銀行代碼000　帳號：0000000000",
+  ls_addr1:"戶籍地址",
+  ls_addr2:"通訊地址",
+  ls_phone:"例如：09XXXXXXXX"
+};
+/* 必填的所得人欄位，沒填完會提醒 */
+var LAB_REQUIRED=[["company","公司名稱"],["name","所得人姓名"],["idno","身分證統一編號"],["job","工作內容"],["pay","支領方式"],["addr1","戶籍地址"],["phone","聯絡電話"]];
+function labMissing(){
+  var L=lab();
+  return LAB_REQUIRED.filter(function(x){return !String(L[x[0]]||"").trim();}).map(function(x){return x[1];});
+}
+function lab(){
+  if(!S.labor) S.labor={};
+  for(var k in LAB_DEFAULT){ if(S.labor[k]===undefined) S.labor[k]=LAB_DEFAULT[k]; }
+  return S.labor;
+}
+function money(n){return Math.round(n).toLocaleString("en-US");}
+/* 分鐘換算小時，四捨五入到小數一位 */
+function minToHours(m){return Math.round(m/6)/10;}
+function laborCalc(hours){
+  var L=lab();
+  var amount=Math.round(hours*(+L.rate||0));
+  var nhi=amount>=(+L.nhiMin||0)?Math.round(amount*(+L.nhiRate||0)/100):0;
+  var tax=amount>=(+L.taxMin||0)?Math.round(amount*(+L.taxRate||0)/100):0;
+  var part=0;
+  if(L.partOn){ part=Math.round(amount*(+L.partRate||0)/100); tax=0; }
+  return {hours:hours,amount:amount,nhi:nhi,part:part,tax:tax,net:amount-nhi-part-tax};
+}
+/* 0 拾 0 萬 5 千 1 百 5 拾 0 元整 */
+function amountWords(n){
+  var d=String(Math.round(n)).split("");
+  while(d.length<6) d.unshift("0");
+  var units=["拾","萬","千","百","拾","元整"];
+  var extra=d.length-6, out=[];
+  if(extra>0){
+    var big=["佰萬","仟萬","億"];
+    for(var i=0;i<extra;i++) out.push(d[i]+"　"+(big[extra-1-i]||""));
+  }
+  for(var j=0;j<6;j++) out.push(d[extra+j]+"　"+units[j]);
+  return out.join("　");
+}
+function fmtH(h){return (Math.round(h*10)/10).toString();}
+function laborFormHTML(c){
+  var L=lab();
+  var sigImg=L.sig?"<img src='"+L.sig+"' alt='簽名'>":"";
+  var jobLine=(L.job?esc(L.job)+"，共":"共計")+fmtH(c.hours)+"小時，每小時"+esc(String(L.rate))+"元";
+  return "<div class='lab'>"+
+  "<p class='ttl'>"+esc(L.company)+"　勞務報酬單</p>"+
+  "<table class='outer'><tbody>"+
+  "<tr><td class='shade c' style='letter-spacing:.4em;font-weight:600'>支領內容摘要</td></tr>"+
+  "<tr><td>"+
+    "<div class='line' style='margin-top:6px'><span class='k'>茲證明</span><span class='v' style='flex:0 0 auto;min-width:110px'>"+esc(L.name)+"</span><span class='k'>確實領取下列款項無誤</span></div>"+
+    "<div class='line'><span class='k'>工作內容：</span><span class='v'>"+jobLine+"</span></div>"+
+    "<table style='margin:8px 0'><tbody>"+
+      "<tr><td class='shade c' rowspan='2' style='width:19%'>應付金額</td>"+
+        "<td class='shade' colspan='3'><div class='c' style='margin-bottom:4px'>代扣二代健保／所得稅</div>"+
+        "<div class='note'>1. 二代健保執行業務單次給付 "+money(L.nhiMin)+" 元以上才需要扣<br>2. 扣繳所得稅執行業務單次給付 "+money(L.taxMin)+" 元以上才需要扣</div></td>"+
+        "<td class='shade c' rowspan='2' style='width:19%'>實付金額</td></tr>"+
+      "<tr><td class='shade c'>"+esc(String(L.nhiRate))+"%<br>二代健保扣費</td>"+
+        "<td class='shade c'>"+esc(String(L.partRate))+"%<br>兼職人員扣稅</td>"+
+        "<td class='shade c'>"+esc(String(L.taxRate))+"%<br>執行業務扣稅</td></tr>"+
+      "<tr><td class='c'>"+money(c.amount)+"</td><td class='c'>"+money(c.nhi)+"</td><td class='c'>"+money(c.part)+"</td><td class='c'>"+money(c.tax)+"</td><td class='c'>"+money(c.net)+"</td></tr>"+
+    "</tbody></table>"+
+    "<div class='line'><span class='k'>所得格式代號：</span><span class='v'>"+esc(L.incomeCode)+"</span></div>"+
+    "<div class='line'><span class='k'>應付新台幣：</span><span class='v amt'>"+amountWords(c.amount)+"</span></div>"+
+    "<div class='line'><span class='k'>支領方式：</span><span class='v'>"+esc(L.pay)+"</span></div>"+
+    "<div class='two'><div class='line'><span class='k'>所得人姓名：</span><span class='v'>"+esc(L.name)+"</span></div>"+
+      "<div class='line'><span class='k'>身分證統一編號：</span><span class='v'>"+esc(L.idno)+"</span></div></div>"+
+    "<div class='line'><span class='k'>戶籍地址：</span><span class='v'>"+esc(L.addr1)+"</span></div>"+
+    "<div class='line'><span class='k'>通訊地址：</span><span class='v'>"+esc(L.addr2)+"</span></div>"+
+    "<div class='line' style='margin-bottom:8px'><span class='k'>聯絡電話：</span><span class='v'>"+esc(L.phone)+"</span></div>"+
+    "<table><tbody><tr><td class='shade c'>日期</td><td class='shade c'>經辦人</td><td class='shade c'>主管簽名(簽章)</td><td class='shade c'>所得人簽名(簽章)</td></tr>"+
+    "<tr><td class='sigcell' style='width:25%'></td><td class='sigcell' style='width:25%'></td><td class='sigcell' style='width:25%'></td><td class='sigcell'>"+sigImg+"</td></tr></tbody></table>"+
+  "</td></tr></tbody></table></div>";
+}
+/* 在彈窗裡放一個勞務報酬單分頁，回傳列印函式 */
+function mountLabor(box,records){
+  var mins=records.reduce(function(a,r){return a+(r.minutes||0);},0);
+  var auto=minToHours(mins);
+  box.innerHTML=
+    "<div class='field' style='display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap'>"+
+      "<div style='flex:1;min-width:140px'><label>請款時數（本期 "+mins+" 分鐘，換算 "+fmtH(auto)+" 小時）</label>"+
+      "<input type='number' step='0.1' min='0' class='l_h' value='"+fmtH(auto)+"'></div>"+
+      "<div style='flex:1;min-width:140px'><label>每小時金額</label><input type='number' min='0' class='l_r' value='"+lab().rate+"'></div>"+
+    "</div>"+
+    "<p class='hint' style='margin:-6px 0 12px'>時數預設由分鐘數除以 60、四捨五入到小數一位，可以手動改；每小時金額改了會記住。</p>"+
+    "<div class='labwrap l_out'></div>"+
+    "<p class='hint' style='margin:10px 0 0'>列印時第一頁是勞務報酬單，第二頁起附上本期完整的勞務內容表格。</p>"+
+    "<div class='btnrow'><button class='tiny solid l_print'>列印／存成 PDF</button><button class='tiny l_set'>修改所得人資料與簽名</button></div>";
+  var draw=function(){
+    var h=Math.max(0,parseFloat(box.querySelector(".l_h").value)||0);
+    var r=Math.max(0,parseFloat(box.querySelector(".l_r").value)||0);
+    if(r!==+lab().rate){lab().rate=r;save();}
+    var miss=labMissing();
+    box.querySelector(".l_out").innerHTML=(miss.length?"<p class='hint' style='margin:0 0 10px;color:var(--pause)'>所得人資料還沒填完（"+esc(miss.join("、"))+"），請按下面「修改所得人資料與簽名」補上。</p>":"")+laborFormHTML(laborCalc(h));
+  };
+  box.querySelector(".l_h").addEventListener("input",draw);
+  box.querySelector(".l_r").addEventListener("input",draw);
+  box.querySelector(".l_print").onclick=function(){
+    var h=Math.max(0,parseFloat(box.querySelector(".l_h").value)||0);
+    var sub=rangeLabel(records)+"　共 "+records.length+" 次回報，總計 "+mins+" 分鐘"+(fmtHm(mins)||"")+"，請款 "+fmtH(h)+" 小時";
+    $("printArea").innerHTML=laborFormHTML(laborCalc(h))+
+      "<div style='break-before:page;page-break-before:always'></div>"+
+      "<h2>勞務內容明細</h2><p class='sum'>"+esc(sub)+"</p>"+billTableHTML(records);
+    setTimeout(function(){window.print();},60);
+  };
+  box.querySelector(".l_set").onclick=function(){laborSettings(draw);};
+  draw();
+}
+function laborSettings(after){
+  var L=lab();
+  var f=function(id,label,val,type){
+    return "<div class='field'><label>"+label+"</label><input type='"+(type||"text")+"' id='"+id+"' value='"+esc(String(val))+"'"+(LAB_HINT[id]?" placeholder='"+esc(LAB_HINT[id])+"'":"")+"></div>";
+  };
+  var m=openModal(
+    "<h3>勞務報酬單設定</h3><div class='labform'>"+
+    f("ls_company","公司名稱（表頭）",L.company)+
+    "<div class='row2'>"+f("ls_name","所得人姓名",L.name)+f("ls_idno","身分證統一編號",L.idno)+"</div>"+
+    f("ls_job","工作內容（後面會自動接「，共X小時，每小時Y元」）",L.job)+
+    "<div class='row2'>"+f("ls_rate","每小時金額",L.rate,"number")+f("ls_code","所得格式代號",L.incomeCode)+"</div>"+
+    f("ls_pay","支領方式",L.pay)+
+    f("ls_addr1","戶籍地址",L.addr1)+
+    f("ls_addr2","通訊地址",L.addr2)+
+    f("ls_phone","聯絡電話",L.phone)+
+    "<div class='row2'>"+f("ls_nr","二代健保費率 %",L.nhiRate,"number")+f("ls_nm","二代健保起扣金額",L.nhiMin,"number")+"</div>"+
+    "<div class='row2'>"+f("ls_tr","執行業務扣稅率 %",L.taxRate,"number")+f("ls_tm","執行業務起扣金額",L.taxMin,"number")+"</div>"+
+    "<div class='field'><label><input type='checkbox' id='ls_part'"+(L.partOn?" checked":"")+"> 改用兼職人員所得（50 類，扣 5%，不扣執行業務稅）</label></div>"+
+    "<div class='field'><label>所得人簽名</label><div class='sigprev'><img id='ls_sigimg' "+(L.sig?"src='"+L.sig+"'":"style='display:none'")+">"+
+      "<button class='tiny' id='ls_sigup'>上傳簽名圖檔</button><button class='tiny del' id='ls_sigrm'>移除簽名</button></div>"+
+      "<input type='file' id='ls_sigfile' accept='image/*' style='display:none'>"+
+      "<p class='hint'>建議用白底黑字、解析度高一點的簽名圖，白色背景會自動去掉，列印比較清楚。</p></div>"+
+    "</div><div class='btnrow'><button class='big solid' id='ls_ok'>儲存</button><button class='big ghost' id='ls_no'>取消</button></div>"
+  );
+  var sig=L.sig;
+  var img=m.querySelector("#ls_sigimg");
+  m.querySelector("#ls_sigup").onclick=function(){m.querySelector("#ls_sigfile").click();};
+  m.querySelector("#ls_sigrm").onclick=function(){sig="";img.style.display="none";img.removeAttribute("src");};
+  m.querySelector("#ls_sigfile").addEventListener("change",function(e){
+    var file=e.target.files&&e.target.files[0]; if(!file) return;
+    var fr=new FileReader();
+    fr.onload=function(){
+      cleanSig(fr.result,function(url){sig=url;img.src=url;img.style.display="";});
+    };
+    fr.readAsDataURL(file);
+  });
+  m.querySelector("#ls_no").onclick=function(){m.remove();};
+  m.querySelector("#ls_ok").onclick=function(){
+    var g=function(id){return m.querySelector("#"+id).value.trim();};
+    L.company=g("ls_company");L.name=g("ls_name");L.idno=g("ls_idno");L.job=g("ls_job");
+    L.rate=parseFloat(g("ls_rate"))||0;L.incomeCode=g("ls_code");L.pay=g("ls_pay");
+    L.addr1=g("ls_addr1");L.addr2=g("ls_addr2");L.phone=g("ls_phone");
+    L.nhiRate=parseFloat(g("ls_nr"))||0;L.nhiMin=parseFloat(g("ls_nm"))||0;
+    L.taxRate=parseFloat(g("ls_tr"))||0;L.taxMin=parseFloat(g("ls_tm"))||0;
+    L.partOn=m.querySelector("#ls_part").checked;
+    L.sig=sig;
+    save();render();m.remove();toast("已儲存");
+    if(after) after();
+  };
+}
+/* 把簽名圖的白色背景去掉並裁切留白 */
+function cleanSig(url,done){
+  var im=new Image();
+  im.onload=function(){
+    var max=600,sc=Math.min(1,max/Math.max(im.width,im.height));
+    var w=Math.round(im.width*sc),h=Math.round(im.height*sc);
+    var cv=document.createElement("canvas");cv.width=w;cv.height=h;
+    var cx=cv.getContext("2d");cx.drawImage(im,0,0,w,h);
+    var d=cx.getImageData(0,0,w,h),p=d.data,x0=w,y0=h,x1=-1,y1=-1;
+    for(var y=0;y<h;y++)for(var x=0;x<w;x++){
+      var i=(y*w+x)*4,l=(p[i]+p[i+1]+p[i+2])/3;
+      if(l>200||p[i+3]<20){p[i+3]=0;}
+      else{p[i]=20;p[i+1]=20;p[i+2]=30;p[i+3]=Math.round(255*Math.min(1,(230-l)/150));
+        if(x<x0)x0=x;if(y<y0)y0=y;if(x>x1)x1=x;if(y>y1)y1=y;}
+    }
+    if(x1<0){toast("圖片裡找不到簽名");return;}
+    cx.putImageData(d,0,0);
+    var out=document.createElement("canvas");out.width=x1-x0+1;out.height=y1-y0+1;
+    out.getContext("2d").drawImage(cv,x0,y0,out.width,out.height,0,0,out.width,out.height);
+    done(out.toDataURL("image/png"));
+  };
+  im.onerror=function(){toast("無法讀取圖片");};
+  im.src=url;
+}
+
+/* ---------- JSON 備份與還原 ---------- */
+function stamp(){
+  var d=new Date();
+  return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes());
+}
+function exportJSON(){
+  var data={app:"worktimer",version:1,exportedAt:new Date().toISOString(),state:{
+    records:S.records,segments:S.segments,items:S.items,running:S.running,archives:S.archives,labor:S.labor
+  }};
+  var blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;a.download="工時備份_"+stamp()+".json";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},3000);
+  S.lastBackup=Date.now();save();render();
+  toast("備份檔已下載");
+}
+function pickFile(){
+  var f=$("impFile");
+  f.value="";
+  f.click();
+}
+function readBackup(file){
+  var fr=new FileReader();
+  fr.onerror=function(){toast("讀取檔案失敗");};
+  fr.onload=function(){
+    var d=null;
+    try{d=JSON.parse(fr.result);}catch(e){toast("這個檔案不是有效的 JSON");return;}
+    var st=(d&&d.state)?d.state:d;
+    if(!st||!Array.isArray(st.records)){toast("這個檔案不是工時備份");return;}
+    confirmRestore(st,d&&d.exportedAt);
+  };
+  fr.readAsText(file);
+}
+function confirmRestore(st,when){
+  var recs=st.records||[],arcs=st.archives||[];
+  var t=recs.reduce(function(a,r){return a+(r.minutes||0);},0);
+  var whenTxt=when?new Date(when).toLocaleString("zh-TW"):"未標示";
+  var m=openModal(
+    "<h3>從備份還原</h3>"+
+    "<p class='hint' style='margin:0 0 14px'>備份時間　"+esc(whenTxt)+"<br>"+
+    "檔案內容　本期 "+recs.length+" 則回報、共 "+t+" 分鐘，已結案 "+arcs.length+" 筆<br>"+
+    "目前資料　本期 "+S.records.length+" 則回報、共 "+totalMinutes()+" 分鐘，已結案 "+S.archives.length+" 筆</p>"+
+    "<div class='btnrow'><button class='big solid' id='r_over'>覆蓋目前資料</button></div>"+
+    "<div class='btnrow'><button class='big' id='r_merge'>合併，只補上沒有的</button></div>"+
+    "<div class='btnrow'><button class='big ghost' id='r_no'>取消</button></div>"+
+    "<p class='hint'>覆蓋會用備份完全取代現在的內容。合併會保留現在的資料，只把備份裡沒出現過的回報與已結案紀錄加進來。</p>"
+  );
+  m.querySelector("#r_no").onclick=function(){m.remove();};
+  m.querySelector("#r_over").onclick=function(){
+    if(!confirm("確定用備份覆蓋目前資料？現在的內容會被取代。"))return;
+    S.records=fixIds(recs);S.archives=fixIds(arcs);
+    S.items=st.items||[];S.segments=st.segments||[];S.running=false;
+    if(st.labor) S.labor=st.labor;
+    save();render();m.remove();toast("已還原");
+  };
+  m.querySelector("#r_merge").onclick=function(){
+    var add=merge(S.records,fixIds(recs));
+    var add2=merge(S.archives,fixIds(arcs));
+    S.records.sort(function(a,b){
+      var x=parseEnd(a.datetime),y=parseEnd(b.datetime);
+      return (x?x.getTime():0)-(y?y.getTime():0);
+    });
+    save();render();m.remove();
+    toast("已合併，新增 "+add+" 則回報、"+add2+" 筆結案");
+  };
+}
+function fixIds(list){
+  return (list||[]).map(function(o){
+    if(!o.id) o.id=uid();
+    if(!Array.isArray(o.items)&&o.items!==undefined) o.items=[];
+    return o;
+  });
+}
+function merge(target,incoming){
+  var seen={},n=0;
+  target.forEach(function(o){seen[o.id]=1;});
+  incoming.forEach(function(o){
+    if(seen[o.id])return;
+    seen[o.id]=1;target.push(o);n++;
+  });
+  return n;
+}
+function tabSwitch(m,p,n){
+  for(var i=1;i<=n;i++)(function(i){
+    var b=m.querySelector("#"+p+"_t"+i);
+    b.onclick=function(){
+      for(var k=1;k<=n;k++){
+        m.querySelector("#"+p+"_t"+k).className=(k===i?"act":"");
+        m.querySelector("#"+p+"_v"+k).style.display=(k===i?"block":"none");
+      }
+    };
+  })(i);
+}
+function rangeLabel(records){
+  if(!records.length) return "";
+  var a=records[0].datetime.split(" ")[0];
+  var b=records[records.length-1].datetime.split(" ")[0];
+  return a===b?a:a+" ~ "+b;
+}
+function showBill(){
+  if(!S.records.length){toast("本期還沒有紀錄");return;}
+  var label=rangeLabel(S.records);
+  var text=billText(S.records,label);
+  var total=totalMinutes();
+  var sub=label+"　共 "+S.records.length+" 次回報，總計 "+total+" 分鐘"+(fmtHm(total)||"");
+  var m=openModal(
+    "<h3>請款報告</h3>"+
+    "<p class='hint' style='margin:0 0 14px'>"+esc(sub)+"</p>"+
+    "<div class='tabs'><button class='act' id='b_t1'>表格</button><button id='b_t2'>純文字</button><button id='b_t3'>勞務報酬單</button></div>"+
+    "<div id='b_v1'>"+
+      "<div class='tblwrap' id='b_box'>"+billTableHTML(S.records)+"</div>"+
+      "<div class='btnrow'><button class='tiny solid' id='b_ctbl'>複製表格</button>"+
+      "<button class='tiny' id='b_print'>列印／存成 PDF</button></div>"+
+      "<p class='hint'>複製表格可以直接貼進 Excel、Word 或 Google 試算表，格線與欄位都會保留。</p>"+
+    "</div>"+
+    "<div id='b_v2' style='display:none'>"+
+      "<pre class='out'>"+esc(text)+"</pre>"+
+      "<div class='btnrow'><button class='tiny solid' id='b_copy'>複製純文字</button></div>"+
+      "<p class='hint'>純文字適合直接貼進 LINE 或訊息軟體。</p>"+
+    "</div>"+
+    "<div id='b_v3' style='display:none'></div>"+
+    "<div class='btnrow' style='margin-top:18px'><button class='big ghost' id='b_close'>關閉</button></div>"+
+    "<div class='btnrow'><button class='big del' id='b_reset'>已請款，結案歸零</button></div>"+
+    "<p class='hint'>結案後本期紀錄會收進「已結案紀錄」，累計時間重新從 0 開始。建議先匯出一次 JSON 備份再結案。</p>"
+  );
+  tabSwitch(m,"b",3);
+  mountLabor(m.querySelector("#b_v3"),S.records);
+  m.querySelector("#b_ctbl").onclick=function(){copyTable(m.querySelector("#b_box"),S.records);};
+  m.querySelector("#b_print").onclick=function(){printReport("工作時數彙整",sub,S.records);};
+  m.querySelector("#b_close").onclick=function(){m.remove();};
+  m.querySelector("#b_copy").onclick=function(){copy(text,"請款報告已複製");};
+  m.querySelector("#b_reset").onclick=function(){
+    if(!confirm("確定結案並歸零？本期 "+S.records.length+" 則紀錄會移到已結案紀錄。")) return;
+    S.archives.unshift({id:uid(),label:label,total:totalMinutes(),count:S.records.length,records:S.records.slice(),text:text});
+    S.records=[];save();render();m.remove();toast("已結案，累計歸零");
+  };
+}
+
+/* ---------- 事件 ---------- */
+$("mainBtn").onclick=function(){S.running?pauseTimer():startTimer();};
+$("stopBtn").onclick=finishStage;
+$("addItem").onclick=addFromInput;
+$("itemInput").addEventListener("keydown",function(e){if(e.key==="Enter")addFromInput();});
+function addFromInput(){
+  var v=$("itemInput").value.trim();
+  if(!v) return;
+  S.items.push(v);$("itemInput").value="";save();render();$("itemInput").focus();
+}
+$("itemList").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  var i;
+  if((i=b.dataset.rm)!==undefined){S.items.splice(+i,1);}
+  else if((i=b.dataset.up)!==undefined){i=+i;if(i>0){var t=S.items[i-1];S.items[i-1]=S.items[i];S.items[i]=t;}}
+  else if((i=b.dataset.down)!==undefined){i=+i;if(i<S.items.length-1){var t2=S.items[i+1];S.items[i+1]=S.items[i];S.items[i]=t2;}}
+  else if((i=b.dataset.edit)!==undefined){
+    var nv=prompt("修改項目",S.items[+i]);
+    if(nv===null)return;
+    nv=nv.trim();if(nv)S.items[+i]=nv;else S.items.splice(+i,1);
+  }
+  save();render();
+});
+$("segList").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b||b.dataset.seg===undefined)return;
+  if(!confirm("刪除這一段時間？"))return;
+  S.segments.splice(+b.dataset.seg,1);save();render();
+});
+$("recList").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  var i;
+  if((i=b.dataset.copy)!==undefined){copy(blockText(S.records[+i],cumulativeAt(+i)),"已複製這則回報");}
+  else if((i=b.dataset.redit)!==undefined){editRecord(+i);}
+  else if((i=b.dataset.rdel)!==undefined){
+    if(!confirm("刪除這則回報？後面的累計會重算。"))return;
+    S.records.splice(+i,1);save();render();
+  }
+});
+$("archList").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  var i;
+  if((i=b.dataset.aview)!==undefined){
+    var a=S.archives[+i];
+    var arecs=a.records||[];
+    var asub=a.label+"　共 "+(a.count||arecs.length)+" 次回報，總計 "+a.total+" 分鐘"+(fmtHm(a.total)||"");
+    var m=openModal(
+      "<h3>已結案報告</h3>"+
+      "<p class='hint' style='margin:0 0 14px'>"+esc(asub)+"</p>"+
+      "<div class='tabs'><button class='act' id='v_t1'>表格</button><button id='v_t2'>純文字</button>"+(arecs.length?"<button id='v_t3'>勞務報酬單</button>":"")+"</div>"+
+      "<div id='v_v1'>"+
+        (arecs.length?"<div class='tblwrap' id='v_box'>"+billTableHTML(arecs)+"</div>"+
+        "<div class='btnrow'><button class='tiny solid' id='v_ctbl'>複製表格</button>"+
+        "<button class='tiny' id='v_print'>列印／存成 PDF</button></div>"
+        :"<p class='empty'>這筆結案紀錄沒有保留明細，只能看純文字。</p>")+
+      "</div>"+
+      "<div id='v_v2' style='display:none'><pre class='out'>"+esc(a.text||"")+"</pre>"+
+      "<div class='btnrow'><button class='tiny solid' id='v_copy'>複製純文字</button></div></div>"+
+      "<div id='v_v3' style='display:none'></div>"+
+      "<div class='btnrow' style='margin-top:18px'><button class='big ghost' id='v_close'>關閉</button></div>");
+    tabSwitch(m,"v",arecs.length?3:2);
+    if(arecs.length) mountLabor(m.querySelector("#v_v3"),arecs);
+    if(arecs.length){
+      m.querySelector("#v_ctbl").onclick=function(){copyTable(m.querySelector("#v_box"),arecs);};
+      m.querySelector("#v_print").onclick=function(){printReport("工作時數彙整",asub,arecs);};
+    }
+    m.querySelector("#v_close").onclick=function(){m.remove();};
+    m.querySelector("#v_copy").onclick=function(){copy(a.text||"","已複製");};
+  }else if((i=b.dataset.adel)!==undefined){
+    if(!confirm("刪除這筆已結案紀錄？"))return;
+    S.archives.splice(+i,1);save();render();
+  }
+});
+$("rateInput").addEventListener("input",function(){
+  var v=parseFloat(this.value);
+  if(isNaN(v)||v<0) return;
+  lab().rate=v;save();render();
+});
+$("manualBtn").onclick=manualAdd;
+$("billBtn").onclick=showBill;
+$("expBtn").onclick=exportJSON;
+$("labSetBtn").onclick=function(){laborSettings();};
+$("impBtn").onclick=pickFile;
+$("impFile").addEventListener("change",function(e){
+  var f=e.target.files&&e.target.files[0];
+  if(f) readBackup(f);
+});
+
+setInterval(function(){ if(S.running) render(); },1000);
+
+load().then(function(d){
+  if(d){
+    S.records=d.records||[];S.segments=d.segments||[];S.items=d.items||[];
+    S.running=!!d.running;S.archives=d.archives||[];S.lastBackup=d.lastBackup||null;
+    if(d.labor) S.labor=d.labor;
+    var last=S.segments[S.segments.length-1];
+    if(S.running&&(!last||last.end)) S.running=false;
+  }
+  render();
+});
+})();
+</script>
+</body>
+</html>
